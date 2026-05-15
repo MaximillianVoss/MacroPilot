@@ -1,7 +1,7 @@
 using System.ComponentModel;
-using MacroPilot.App.Models;
-using MacroPilot.App.Playback;
-using MacroPilot.App.Recording;
+using MacroPilot.Core.Models;
+using MacroPilot.Core.Playback;
+using MacroPilot.Core.Recording;
 
 namespace MacroPilot.App;
 

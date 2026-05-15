@@ -1,8 +1,9 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using MacroPilot.App.Models;
+using System.Text;
+using MacroPilot.Core.Models;
 
-namespace MacroPilot.App.Win32;
+namespace MacroPilot.Core.Platform;
 
 internal static class NativeMethods
 {
@@ -75,6 +76,12 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
+    [DllImport("user32.dll")]
+    private static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetKeyNameText(int lParam, StringBuilder lpString, int cchSize);
+
     internal static void MoveCursor(int x, int y)
     {
         if (!SetCursorPos(x, y))
@@ -102,6 +109,21 @@ internal static class NativeMethods
         ];
 
         SendInputOrThrow(inputs);
+    }
+
+    internal static string GetKeyName(int virtualKey, uint scanCode, bool isExtended)
+    {
+        uint resolvedScanCode = scanCode == 0 ? MapVirtualKey((uint)virtualKey, 0) : scanCode;
+        int lParam = unchecked((int)(resolvedScanCode << 16));
+        if (isExtended)
+        {
+            lParam |= 1 << 24;
+        }
+
+        StringBuilder builder = new(64);
+        return GetKeyNameText(lParam, builder, builder.Capacity) > 0
+            ? builder.ToString()
+            : $"VK_{virtualKey}";
     }
 
     internal static void SendMouseButton(MouseButtonKind button, bool isDown)

@@ -1,4 +1,4 @@
-namespace MacroPilot.App.Recording;
+namespace MacroPilot.Core.Recording;
 
 public sealed class RecorderOptions
 {

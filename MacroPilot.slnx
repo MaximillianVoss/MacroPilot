@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="MacroPilot.App/MacroPilot.App.csproj" />
+  <Project Path="MacroPilot.Core/MacroPilot.Core.csproj" />
+  <Project Path="MacroPilot.Wpf/MacroPilot.Wpf.csproj" />
 </Solution>

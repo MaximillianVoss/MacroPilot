@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace MacroPilot.App.Models;
+namespace MacroPilot.Core.Models;
 
 public static class ScriptSerializer
 {

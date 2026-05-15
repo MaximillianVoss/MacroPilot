@@ -1,7 +1,7 @@
-using MacroPilot.App.Models;
-using MacroPilot.App.Win32;
+using MacroPilot.Core.Models;
+using MacroPilot.Core.Platform;
 
-namespace MacroPilot.App.Playback;
+namespace MacroPilot.Core.Playback;
 
 public sealed class MacroPlayer
 {
@@ -19,10 +19,13 @@ public sealed class MacroPlayer
             await Task.Delay(options.StartDelayMs, cancellationToken);
         }
 
-        int repeatCount = Math.Max(1, options.RepeatCount);
         double speed = Math.Clamp(options.Speed, 0.1, 10.0);
+        int repeatCount = Math.Max(1, options.RepeatCount);
+        DateTimeOffset? stopAt = options.RepeatMode == PlaybackRepeatMode.Duration
+            ? DateTimeOffset.UtcNow.AddMinutes(Math.Max(1, options.RepeatDurationMinutes))
+            : null;
 
-        for (int repeat = 1; repeat <= repeatCount; repeat++)
+        for (int repeat = 1; ShouldStartRepeat(repeat, repeatCount, stopAt); repeat++)
         {
             for (int index = 0; index < script.Actions.Count; index++)
             {
@@ -30,15 +33,76 @@ public sealed class MacroPlayer
                 MacroAction action = script.Actions[index];
                 int delay = ScaleDelay(action.DelayMs, speed);
 
-                if (delay > 0)
+                if (!await WaitForActionDelayAsync(delay, stopAt, cancellationToken))
                 {
-                    await Task.Delay(delay, cancellationToken);
+                    return;
                 }
 
                 Execute(action, options);
-                progress?.Report(new PlaybackProgress(repeat, repeatCount, index + 1, script.Actions.Count));
+                progress?.Report(new PlaybackProgress(
+                    repeat,
+                    stopAt.HasValue ? 0 : repeatCount,
+                    index + 1,
+                    script.Actions.Count)
+                {
+                    Remaining = RemainingUntil(stopAt)
+                });
             }
         }
+    }
+
+    private static bool ShouldStartRepeat(int repeat, int repeatCount, DateTimeOffset? stopAt)
+    {
+        if (!stopAt.HasValue)
+        {
+            return repeat <= repeatCount;
+        }
+
+        return DateTimeOffset.UtcNow < stopAt.Value;
+    }
+
+    private static async Task<bool> WaitForActionDelayAsync(
+        int delayMs,
+        DateTimeOffset? stopAt,
+        CancellationToken cancellationToken)
+    {
+        if (delayMs <= 0)
+        {
+            return !stopAt.HasValue || DateTimeOffset.UtcNow < stopAt.Value;
+        }
+
+        if (!stopAt.HasValue)
+        {
+            await Task.Delay(delayMs, cancellationToken);
+            return true;
+        }
+
+        TimeSpan remaining = stopAt.Value - DateTimeOffset.UtcNow;
+        if (remaining <= TimeSpan.Zero)
+        {
+            return false;
+        }
+
+        TimeSpan requestedDelay = TimeSpan.FromMilliseconds(delayMs);
+        if (remaining < requestedDelay)
+        {
+            await Task.Delay(remaining, cancellationToken);
+            return false;
+        }
+
+        await Task.Delay(requestedDelay, cancellationToken);
+        return true;
+    }
+
+    private static TimeSpan? RemainingUntil(DateTimeOffset? stopAt)
+    {
+        if (!stopAt.HasValue)
+        {
+            return null;
+        }
+
+        TimeSpan remaining = stopAt.Value - DateTimeOffset.UtcNow;
+        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
     }
 
     private static int ScaleDelay(int delayMs, double speed)

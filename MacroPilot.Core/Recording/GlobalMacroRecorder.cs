@@ -1,12 +1,15 @@
 using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.InteropServices;
-using MacroPilot.App.Models;
-using MacroPilot.App.Win32;
+using MacroPilot.Core.Models;
+using MacroPilot.Core.Platform;
 
-namespace MacroPilot.App.Recording;
+namespace MacroPilot.Core.Recording;
 
 public sealed class GlobalMacroRecorder : IDisposable
 {
+    private const int StopRecordingVirtualKey = 0x78;
+
     private readonly RecorderOptions _options;
     private readonly NativeMethods.LowLevelKeyboardProc _keyboardProc;
     private readonly NativeMethods.LowLevelMouseProc _mouseProc;
@@ -92,7 +95,7 @@ public sealed class GlobalMacroRecorder : IDisposable
                 bool isUp = message is NativeMethods.WM_KEYUP or NativeMethods.WM_SYSKEYUP;
                 int virtualKey = checked((int)hook.vkCode);
 
-                if (isDown && virtualKey == (int)Keys.F9)
+                if (isDown && virtualKey == StopRecordingVirtualKey)
                 {
                     StopRequested?.Invoke(this, EventArgs.Empty);
                     return 1;
@@ -100,12 +103,11 @@ public sealed class GlobalMacroRecorder : IDisposable
 
                 if (isDown || isUp)
                 {
-                    Keys key = (Keys)virtualKey;
                     Record(new MacroAction
                     {
                         Type = isDown ? MacroActionType.KeyDown : MacroActionType.KeyUp,
                         VirtualKey = virtualKey,
-                        KeyName = key.ToString()
+                        KeyName = NativeMethods.GetKeyName(virtualKey, hook.scanCode, (hook.flags & 1) != 0)
                     });
                 }
             }

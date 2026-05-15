@@ -1,4 +1,4 @@
-namespace MacroPilot.App.Models;
+namespace MacroPilot.Core.Models;
 
 public enum MouseButtonKind
 {

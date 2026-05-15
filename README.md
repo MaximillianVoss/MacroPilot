@@ -1,15 +1,22 @@
 # MacroPilot
 
-MacroPilot is a small Windows macro recorder/player written in C# and WinForms.
+MacroPilot is a small Windows macro recorder/player written in C#.
 
 It focuses on the ReMouse-like core workflow:
 
 - record keyboard key down/up events;
 - record mouse clicks, releases, wheel events, and optionally mouse movement;
 - replay the recorded script with repeat count, speed multiplier, and start delay;
+- replay the recorded script for a configured duration in minutes in the WPF app;
 - save and load editable JSON scripts (`*.macropilot.json`);
 - stop recording globally with `F9`;
 - cancel playback with `Esc` when the app has focus.
+
+## Projects
+
+- `MacroPilot.Core` - shared script model, JSON serialization, global recorder, and playback engine.
+- `MacroPilot.App` - original Windows Forms shell.
+- `MacroPilot.Wpf` - newer WPF shell with a cleaner layout and duration-based replay mode.
 
 ## Requirements
 
@@ -25,6 +32,12 @@ dotnet build MacroPilot.slnx
 ## Run
 
 ```powershell
+dotnet run --project .\MacroPilot.Wpf\MacroPilot.Wpf.csproj
+```
+
+To run the Windows Forms version:
+
+```powershell
 dotnet run --project .\MacroPilot.App\MacroPilot.App.csproj
 ```
 
@@ -34,7 +47,7 @@ dotnet run --project .\MacroPilot.App\MacroPilot.App.csproj
 2. Perform the actions you want to capture.
 3. Press `F9` or click `Стоп`.
 4. Review or edit the action table.
-5. Set repeat count, speed, and start delay.
+5. Set repeat count or switch the WPF app to minute-based duration mode.
 6. Click `Пуск`.
 
 Mouse coordinates are stored as absolute screen coordinates. For reliable playback, keep the target windows in the same positions or edit the coordinates in the table.
