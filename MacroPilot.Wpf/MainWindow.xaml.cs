@@ -2,9 +2,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Windows.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Input;
 using MacroPilot.Core.Models;
 using MacroPilot.Core.Playback;
@@ -20,12 +20,19 @@ public partial class MainWindow : Window
     private GlobalMacroRecorder? _recorder;
     private CancellationTokenSource? _playbackCts;
     private string? _currentPath;
+    private bool _refreshQueued;
+    private bool _scrollToLastOnRefresh;
 
     public MainWindow()
     {
         Actions = [];
         InitializeComponent();
-        DataContext = this;
+        ActionsGrid.ItemsSource = Actions;
+        Actions.CollectionChanged += (_, _) =>
+        {
+            QueueActionsRefresh(scrollToLast: false);
+            UpdateInteractionState();
+        };
         UpdateDurationControls();
         UpdateInteractionState();
     }
@@ -64,6 +71,7 @@ public partial class MainWindow : Window
         _currentPath = null;
         NameTextBox.Text = "Мой макрос";
         Actions.Clear();
+        QueueActionsRefresh(scrollToLast: false);
         SetStatus("Создан пустой сценарий.");
         UpdateInteractionState();
     }
@@ -97,6 +105,7 @@ public partial class MainWindow : Window
                 Actions.Add(action);
             }
 
+            QueueActionsRefresh(scrollToLast: true);
             SetStatus($"Открыто действий: {Actions.Count}.");
         }
         catch (Exception ex)
@@ -178,6 +187,7 @@ public partial class MainWindow : Window
             DelayMs = 1000,
             Comment = "Пауза"
         });
+        QueueActionsRefresh(scrollToLast: true);
         SetStatus("Добавлена пауза 1000 мс.");
         UpdateInteractionState();
     }
@@ -199,6 +209,7 @@ public partial class MainWindow : Window
         }
 
         SetStatus($"Удалено строк: {selected.Count}.");
+        QueueActionsRefresh(scrollToLast: false);
         UpdateInteractionState();
     }
 
@@ -211,6 +222,7 @@ public partial class MainWindow : Window
         }
 
         Actions.Move(index, index - 1);
+        QueueActionsRefresh(scrollToLast: false);
         SelectRow(index - 1);
         SetStatus("Порядок действий изменен.");
         UpdateInteractionState();
@@ -225,6 +237,7 @@ public partial class MainWindow : Window
         }
 
         Actions.Move(index, index + 1);
+        QueueActionsRefresh(scrollToLast: false);
         SelectRow(index + 1);
         SetStatus("Порядок действий изменен.");
         UpdateInteractionState();
@@ -335,9 +348,23 @@ public partial class MainWindow : Window
     {
         options = null;
 
-        if (!TryParseInt(RepeatCountTextBox.Text, 1, 999, "Повторы", out int repeatCount)
-            || !TryParseInt(DurationMinutesTextBox.Text, 1, 1440, "Длительность", out int durationMinutes)
-            || !TryParseDouble(SpeedTextBox.Text, 0.1, 10.0, "Скорость", out double speed)
+        PlaybackRepeatMode repeatMode = SelectedRepeatMode();
+        int repeatCount = 1;
+        int durationMinutes = 1;
+
+        if (repeatMode == PlaybackRepeatMode.Count
+            && !TryParseInt(RepeatCountTextBox.Text, 1, 999, "Повторы", out repeatCount))
+        {
+            return false;
+        }
+
+        if (repeatMode == PlaybackRepeatMode.Duration
+            && !TryParseInt(DurationMinutesTextBox.Text, 1, 1440, "Длительность", out durationMinutes))
+        {
+            return false;
+        }
+
+        if (!TryParseDouble(SpeedTextBox.Text, 0.1, 10.0, "Скорость", out double speed)
             || !TryParseDouble(StartDelayTextBox.Text, 0, 30, "Стартовая задержка", out double startDelaySeconds))
         {
             return false;
@@ -345,7 +372,7 @@ public partial class MainWindow : Window
 
         options = new PlaybackOptions
         {
-            RepeatMode = SelectedRepeatMode(),
+            RepeatMode = repeatMode,
             RepeatCount = repeatCount,
             RepeatDurationMinutes = durationMinutes,
             Speed = speed,
@@ -385,6 +412,7 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(() =>
         {
             Actions.Add(action);
+            QueueActionsRefresh(scrollToLast: true);
             SetStatus($"Записано действий: {Actions.Count}. Последнее: {DescribeAction(action)}.");
             UpdateInteractionState();
         });
@@ -411,7 +439,6 @@ public partial class MainWindow : Window
         {
             ActionsGrid.CommitEdit(DataGridEditingUnit.Cell, true);
             ActionsGrid.CommitEdit(DataGridEditingUnit.Row, true);
-            BindingOperations.GetBindingExpressionBase(ActionsGrid, ItemsControl.ItemsSourceProperty)?.UpdateSource();
             return true;
         }
         catch (Exception ex)
@@ -534,15 +561,81 @@ public partial class MainWindow : Window
 
     private bool TryParseDouble(string value, double minimum, double maximum, string label, out double result)
     {
-        if (double.TryParse(value, NumberStyles.Float, CultureInfo.CurrentCulture, out result)
+        if (TryParseFlexibleDouble(value, out result)
             && result >= minimum
             && result <= maximum)
         {
             return true;
         }
 
-        ShowError($"{label}: укажите число от {minimum} до {maximum}.", new FormatException("Некорректное значение."));
+        ShowError($"{label}: укажите число от {minimum} до {maximum}. Можно использовать точку или запятую.", new FormatException("Некорректное значение."));
         return false;
+    }
+
+    private static bool TryParseFlexibleDouble(string value, out double result)
+    {
+        string trimmed = value.Trim();
+        CultureInfo[] cultures =
+        [
+            CultureInfo.CurrentCulture,
+            CultureInfo.InvariantCulture,
+            CultureInfo.GetCultureInfo("ru-RU")
+        ];
+
+        foreach (CultureInfo culture in cultures)
+        {
+            if (double.TryParse(trimmed, NumberStyles.Float, culture, out result))
+            {
+                return true;
+            }
+        }
+
+        string invariantCandidate = trimmed.Replace(',', '.');
+        if (double.TryParse(invariantCandidate, NumberStyles.Float, CultureInfo.InvariantCulture, out result))
+        {
+            return true;
+        }
+
+        string currentSeparator = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+        string currentCandidate = trimmed.Replace(".", currentSeparator).Replace(",", currentSeparator);
+        return double.TryParse(currentCandidate, NumberStyles.Float, CultureInfo.CurrentCulture, out result);
+    }
+
+    private void QueueActionsRefresh(bool scrollToLast)
+    {
+        if (!IsInitialized || ActionsGrid is null)
+        {
+            return;
+        }
+
+        _scrollToLastOnRefresh |= scrollToLast;
+
+        if (_refreshQueued)
+        {
+            return;
+        }
+
+        _refreshQueued = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+        {
+            _refreshQueued = false;
+            bool shouldScroll = _scrollToLastOnRefresh;
+            _scrollToLastOnRefresh = false;
+
+            try
+            {
+                ActionsGrid.Items.Refresh();
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+
+            if (shouldScroll && Actions.Count > 0)
+            {
+                ActionsGrid.ScrollIntoView(Actions[Actions.Count - 1]);
+            }
+        });
     }
 
     private static string FormatRemaining(TimeSpan? remaining)

@@ -178,7 +178,6 @@
 
         <DataGrid x:Name="ActionsGrid"
                   Grid.Row="1"
-                  ItemsSource="{Binding Actions}"
                   AutoGenerateColumns="False"
                   CanUserAddRows="True"
                   CanUserDeleteRows="True"
