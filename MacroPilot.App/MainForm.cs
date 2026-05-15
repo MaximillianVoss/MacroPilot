@@ -35,6 +35,7 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
+        UseApplicationIcon();
         BuildUi();
         UpdateInteractionState();
     }
@@ -85,6 +86,15 @@ public sealed class MainForm : Form
         root.Controls.Add(BuildStatusBar(), 0, 2);
 
         Controls.Add(root);
+    }
+
+    private void UseApplicationIcon()
+    {
+        Icon? icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        if (icon is not null)
+        {
+            Icon = icon;
+        }
     }
 
     private Control BuildTopPanel()
