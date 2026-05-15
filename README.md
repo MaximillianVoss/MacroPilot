@@ -9,6 +9,7 @@ It focuses on the ReMouse-like core workflow:
 - replay the recorded script with repeat count, speed multiplier, and start delay;
 - replay the recorded script for a configured duration in minutes in the WPF app;
 - save and load editable JSON scripts (`*.macropilot.json`);
+- start recording in the WPF app with `Ctrl+Alt+F8`;
 - stop recording globally with `F9`;
 - cancel playback with `Esc` when the app has focus.
 
@@ -43,7 +44,7 @@ dotnet run --project .\MacroPilot.App\MacroPilot.App.csproj
 
 ## Usage Notes
 
-1. Click `Запись` to start recording.
+1. Click `Запись` or press `Ctrl+Alt+F8` in the WPF app to start recording.
 2. Perform the actions you want to capture.
 3. Press `F9` or click `Стоп`.
 4. Review or edit the action table.

@@ -29,12 +29,15 @@ internal static class NativeMethods
     internal const int WM_XBUTTONUP = 0x020C;
 
     internal const uint LLKHF_INJECTED = 0x10;
+    internal const uint LLKHF_EXTENDED = 0x01;
     internal const uint LLMHF_INJECTED = 0x00000001;
 
     private const uint INPUT_MOUSE = 0;
     private const uint INPUT_KEYBOARD = 1;
 
     private const uint KEYEVENTF_KEYUP = 0x0002;
+    private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
+    private const uint KEYEVENTF_SCANCODE = 0x0008;
 
     private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
     private const uint MOUSEEVENTF_LEFTUP = 0x0004;
@@ -90,8 +93,24 @@ internal static class NativeMethods
         }
     }
 
-    internal static void SendKey(int virtualKey, bool isDown)
+    internal static void SendKey(int virtualKey, int scanCode, bool isExtended, bool isDown)
     {
+        uint resolvedScanCode = scanCode > 0 ? checked((uint)scanCode) : MapVirtualKey((uint)virtualKey, 0);
+        uint flags = isDown ? 0 : KEYEVENTF_KEYUP;
+        ushort resolvedVirtualKey = checked((ushort)Math.Max(0, virtualKey));
+        ushort resolvedScanCodeShort = checked((ushort)Math.Min(ushort.MaxValue, resolvedScanCode));
+
+        if (resolvedScanCodeShort != 0)
+        {
+            resolvedVirtualKey = 0;
+            flags |= KEYEVENTF_SCANCODE;
+        }
+
+        if (isExtended)
+        {
+            flags |= KEYEVENTF_EXTENDEDKEY;
+        }
+
         INPUT[] inputs =
         [
             new()
@@ -101,8 +120,9 @@ internal static class NativeMethods
                 {
                     ki = new KEYBDINPUT
                     {
-                        wVk = checked((ushort)virtualKey),
-                        dwFlags = isDown ? 0 : KEYEVENTF_KEYUP
+                        wVk = resolvedVirtualKey,
+                        wScan = resolvedScanCodeShort,
+                        dwFlags = flags
                     }
                 }
             }

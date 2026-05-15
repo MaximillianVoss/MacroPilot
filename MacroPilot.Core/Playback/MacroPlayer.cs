@@ -141,10 +141,10 @@ public sealed class MacroPlayer
                 NativeMethods.SendMouseWheel(action.Delta);
                 break;
             case MacroActionType.KeyDown:
-                NativeMethods.SendKey(action.VirtualKey, isDown: true);
+                NativeMethods.SendKey(action.VirtualKey, action.ScanCode, action.IsExtendedKey, isDown: true);
                 break;
             case MacroActionType.KeyUp:
-                NativeMethods.SendKey(action.VirtualKey, isDown: false);
+                NativeMethods.SendKey(action.VirtualKey, action.ScanCode, action.IsExtendedKey, isDown: false);
                 break;
             default:
                 throw new NotSupportedException($"Unsupported macro action type: {action.Type}");

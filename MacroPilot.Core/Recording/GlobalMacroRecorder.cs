@@ -107,7 +107,9 @@ public sealed class GlobalMacroRecorder : IDisposable
                     {
                         Type = isDown ? MacroActionType.KeyDown : MacroActionType.KeyUp,
                         VirtualKey = virtualKey,
-                        KeyName = NativeMethods.GetKeyName(virtualKey, hook.scanCode, (hook.flags & 1) != 0)
+                        ScanCode = checked((int)hook.scanCode),
+                        IsExtendedKey = (hook.flags & NativeMethods.LLKHF_EXTENDED) != 0,
+                        KeyName = NativeMethods.GetKeyName(virtualKey, hook.scanCode, (hook.flags & NativeMethods.LLKHF_EXTENDED) != 0)
                     });
                 }
             }

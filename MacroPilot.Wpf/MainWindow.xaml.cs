@@ -2,10 +2,12 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
-using System.Windows.Threading;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Threading;
 using MacroPilot.Core.Models;
 using MacroPilot.Core.Playback;
 using MacroPilot.Core.Recording;
@@ -15,6 +17,12 @@ namespace MacroPilot.Wpf;
 
 public partial class MainWindow : Window
 {
+    private const int StartRecordingHotkeyId = 100;
+    private const int WM_HOTKEY = 0x0312;
+    private const uint MOD_ALT = 0x0001;
+    private const uint MOD_CONTROL = 0x0002;
+    private const uint VK_F8 = 0x77;
+
     private readonly MacroPlayer _player = new();
 
     private GlobalMacroRecorder? _recorder;
@@ -22,6 +30,8 @@ public partial class MainWindow : Window
     private string? _currentPath;
     private bool _refreshQueued;
     private bool _scrollToLastOnRefresh;
+    private nint _windowHandle;
+    private HwndSource? _source;
 
     public MainWindow()
     {
@@ -38,6 +48,23 @@ public partial class MainWindow : Window
     }
 
     public ObservableCollection<MacroAction> Actions { get; }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        _windowHandle = new WindowInteropHelper(this).Handle;
+        _source = HwndSource.FromHwnd(_windowHandle);
+        _source?.AddHook(WndProc);
+
+        if (RegisterHotKey(_windowHandle, StartRecordingHotkeyId, MOD_CONTROL | MOD_ALT, VK_F8))
+        {
+            SetStatus("Готово. Ctrl+Alt+F8 запускает запись, F9 останавливает запись.");
+        }
+        else
+        {
+            SetStatus("Не удалось зарегистрировать Ctrl+Alt+F8. Возможно, это сочетание уже занято.");
+        }
+    }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -58,6 +85,8 @@ public partial class MainWindow : Window
     {
         StopRecording();
         _playbackCts?.Cancel();
+        UnregisterHotKey(_windowHandle, StartRecordingHotkeyId);
+        _source?.RemoveHook(WndProc);
     }
 
     private void NewButton_Click(object sender, RoutedEventArgs e)
@@ -123,12 +152,22 @@ public partial class MainWindow : Window
 
     private void RecordButton_Click(object sender, RoutedEventArgs e)
     {
+        StartRecording(askToClearExistingActions: true);
+    }
+
+    private void StartRecording(bool askToClearExistingActions)
+    {
         if (_playbackCts is not null)
         {
             return;
         }
 
-        if (Actions.Count > 0)
+        if (_recorder is not null)
+        {
+            return;
+        }
+
+        if (askToClearExistingActions && Actions.Count > 0)
         {
             MessageBoxResult result = MessageBox.Show(
                 this,
@@ -423,6 +462,17 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(StopRecording);
     }
 
+    private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
+    {
+        if (msg == WM_HOTKEY && wParam.ToInt32() == StartRecordingHotkeyId)
+        {
+            StartRecording(askToClearExistingActions: false);
+            handled = true;
+        }
+
+        return nint.Zero;
+    }
+
     private MacroScript BuildScriptFromGrid()
     {
         return new MacroScript
@@ -674,4 +724,12 @@ public partial class MainWindow : Window
 
         return name;
     }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool RegisterHotKey(nint hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool UnregisterHotKey(nint hWnd, int id);
 }
