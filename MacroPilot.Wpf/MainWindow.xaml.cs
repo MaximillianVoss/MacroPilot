@@ -18,10 +18,14 @@ namespace MacroPilot.Wpf;
 public partial class MainWindow : Window
 {
     private const int StartRecordingHotkeyId = 100;
+    private const int StopRecordingHotkeyId = 101;
     private const int WM_HOTKEY = 0x0312;
-    private const uint MOD_ALT = 0x0001;
     private const uint MOD_CONTROL = 0x0002;
-    private const uint VK_F8 = 0x77;
+    private const uint MOD_SHIFT = 0x0004;
+    private const uint VK_F9 = 0x78;
+    private const int VK_SHIFT = 0x10;
+    private const int VK_LSHIFT = 0xA0;
+    private const int VK_RSHIFT = 0xA1;
 
     private readonly MacroPlayer _player = new();
 
@@ -30,6 +34,7 @@ public partial class MainWindow : Window
     private string? _currentPath;
     private bool _refreshQueued;
     private bool _scrollToLastOnRefresh;
+    private bool _stopRequestedByHotkey;
     private nint _windowHandle;
     private HwndSource? _source;
 
@@ -41,9 +46,11 @@ public partial class MainWindow : Window
         Actions.CollectionChanged += (_, _) =>
         {
             QueueActionsRefresh(scrollToLast: false);
+            RefreshTimingSummary();
             UpdateInteractionState();
         };
         UpdateDurationControls();
+        RefreshTimingSummary();
         UpdateInteractionState();
     }
 
@@ -56,22 +63,33 @@ public partial class MainWindow : Window
         _source = HwndSource.FromHwnd(_windowHandle);
         _source?.AddHook(WndProc);
 
-        if (RegisterHotKey(_windowHandle, StartRecordingHotkeyId, MOD_CONTROL | MOD_ALT, VK_F8))
+        bool startRegistered = RegisterHotKey(_windowHandle, StartRecordingHotkeyId, MOD_CONTROL, VK_F9);
+        bool stopRegistered = RegisterHotKey(_windowHandle, StopRecordingHotkeyId, MOD_SHIFT, VK_F9);
+
+        if (startRegistered && stopRegistered)
         {
-            SetStatus("Готово. Ctrl+Alt+F8 запускает запись, F9 останавливает запись.");
+            SetStatus("Готово. Ctrl+F9 запускает запись, Shift+F9 останавливает запись.");
         }
         else
         {
-            SetStatus("Не удалось зарегистрировать Ctrl+Alt+F8. Возможно, это сочетание уже занято.");
+            SetStatus("Не удалось зарегистрировать все hotkeys. Возможно, Ctrl+F9 или Shift+F9 уже заняты.");
         }
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.F9 && _recorder is not null)
+        if (IsF9(e) && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
-            StopRecording();
+            StartRecording(askToClearExistingActions: false);
             e.Handled = true;
+            return;
+        }
+
+        if (IsF9(e) && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            RequestStopRecordingByHotkey();
+            e.Handled = true;
+            return;
         }
 
         if (e.Key == Key.Escape && _playbackCts is not null)
@@ -86,6 +104,7 @@ public partial class MainWindow : Window
         StopRecording();
         _playbackCts?.Cancel();
         UnregisterHotKey(_windowHandle, StartRecordingHotkeyId);
+        UnregisterHotKey(_windowHandle, StopRecordingHotkeyId);
         _source?.RemoveHook(WndProc);
     }
 
@@ -101,6 +120,7 @@ public partial class MainWindow : Window
         NameTextBox.Text = "Мой макрос";
         Actions.Clear();
         QueueActionsRefresh(scrollToLast: false);
+        RefreshTimingSummary();
         SetStatus("Создан пустой сценарий.");
         UpdateInteractionState();
     }
@@ -135,6 +155,7 @@ public partial class MainWindow : Window
             }
 
             QueueActionsRefresh(scrollToLast: true);
+            RefreshTimingSummary();
             SetStatus($"Открыто действий: {Actions.Count}.");
         }
         catch (Exception ex)
@@ -184,6 +205,7 @@ public partial class MainWindow : Window
             if (result == MessageBoxResult.Yes)
             {
                 Actions.Clear();
+                RefreshTimingSummary();
             }
         }
 
@@ -196,7 +218,7 @@ public partial class MainWindow : Window
             _recorder.ActionRecorded += RecorderOnActionRecorded;
             _recorder.StopRequested += RecorderOnStopRequested;
             _recorder.Start();
-            SetStatus("Идет запись. Нажмите F9 или кнопку Стоп для остановки.");
+            SetStatus("Идет запись. Нажмите Shift+F9 или кнопку Стоп для остановки.");
         }
         catch (Exception ex)
         {
@@ -227,7 +249,34 @@ public partial class MainWindow : Window
             Comment = "Пауза"
         });
         QueueActionsRefresh(scrollToLast: true);
+        RefreshTimingSummary();
         SetStatus("Добавлена пауза 1000 мс.");
+        UpdateInteractionState();
+    }
+
+    private void ClearButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (Actions.Count == 0)
+        {
+            return;
+        }
+
+        MessageBoxResult result = MessageBox.Show(
+            this,
+            "Удалить все действия из текущего сценария?",
+            "Очистить сценарий",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Warning);
+
+        if (result != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        Actions.Clear();
+        QueueActionsRefresh(scrollToLast: false);
+        RefreshTimingSummary();
+        SetStatus("Список действий очищен.");
         UpdateInteractionState();
     }
 
@@ -249,6 +298,7 @@ public partial class MainWindow : Window
 
         SetStatus($"Удалено строк: {selected.Count}.");
         QueueActionsRefresh(scrollToLast: false);
+        RefreshTimingSummary();
         UpdateInteractionState();
     }
 
@@ -262,6 +312,7 @@ public partial class MainWindow : Window
 
         Actions.Move(index, index - 1);
         QueueActionsRefresh(scrollToLast: false);
+        RefreshTimingSummary();
         SelectRow(index - 1);
         SetStatus("Порядок действий изменен.");
         UpdateInteractionState();
@@ -277,6 +328,7 @@ public partial class MainWindow : Window
 
         Actions.Move(index, index + 1);
         QueueActionsRefresh(scrollToLast: false);
+        RefreshTimingSummary();
         SelectRow(index + 1);
         SetStatus("Порядок действий изменен.");
         UpdateInteractionState();
@@ -285,11 +337,31 @@ public partial class MainWindow : Window
     private void RepeatModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         UpdateDurationControls();
+        RefreshTimingSummary();
+    }
+
+    private void PlaybackSettingsChanged(object sender, TextChangedEventArgs e)
+    {
+        RefreshTimingSummary();
     }
 
     private void ActionsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         UpdateInteractionState();
+    }
+
+    private void ActionsGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+        {
+            QueueActionsRefresh(scrollToLast: false);
+            RefreshTimingSummary();
+        });
+    }
+
+    private void ActionsGrid_CurrentCellChanged(object sender, EventArgs e)
+    {
+        RefreshTimingSummary();
     }
 
     private async Task SaveScriptAsync()
@@ -370,6 +442,7 @@ public partial class MainWindow : Window
         finally
         {
             _playbackCts = null;
+            RefreshTimingSummary();
             UpdateInteractionState();
         }
     }
@@ -380,6 +453,9 @@ public partial class MainWindow : Window
             ? $"проход {progress.RepeatIndex}, осталось {FormatRemaining(progress.Remaining)}"
             : $"проход {progress.RepeatIndex}/{progress.RepeatCount}";
 
+        RemainingTextBlock.Text = progress.IsDurationMode
+            ? FormatRemaining(progress.Remaining)
+            : FormatRemaining(EstimateCountRemaining(progress));
         SetStatus($"Проигрывание: {repeatText}, действие {progress.ActionIndex}/{progress.ActionCount}.");
     }
 
@@ -442,6 +518,13 @@ public partial class MainWindow : Window
         _recorder.StopRequested -= RecorderOnStopRequested;
         _recorder.Dispose();
         _recorder = null;
+        if (_stopRequestedByHotkey)
+        {
+            RemoveTrailingStopHotkeyModifiers();
+            _stopRequestedByHotkey = false;
+        }
+
+        RefreshTimingSummary();
         SetStatus($"Запись остановлена. Действий: {Actions.Count}.");
         UpdateInteractionState();
     }
@@ -452,6 +535,7 @@ public partial class MainWindow : Window
         {
             Actions.Add(action);
             QueueActionsRefresh(scrollToLast: true);
+            RefreshTimingSummary();
             SetStatus($"Записано действий: {Actions.Count}. Последнее: {DescribeAction(action)}.");
             UpdateInteractionState();
         });
@@ -459,14 +543,36 @@ public partial class MainWindow : Window
 
     private void RecorderOnStopRequested(object? sender, EventArgs e)
     {
-        Dispatcher.Invoke(StopRecording);
+        Dispatcher.Invoke(RequestStopRecordingByHotkey);
+    }
+
+    private void RequestStopRecordingByHotkey()
+    {
+        if (_recorder is null)
+        {
+            return;
+        }
+
+        _stopRequestedByHotkey = true;
+        StopRecording();
     }
 
     private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
     {
-        if (msg == WM_HOTKEY && wParam.ToInt32() == StartRecordingHotkeyId)
+        if (msg != WM_HOTKEY)
+        {
+            return nint.Zero;
+        }
+
+        int hotkeyId = wParam.ToInt32();
+        if (hotkeyId == StartRecordingHotkeyId)
         {
             StartRecording(askToClearExistingActions: false);
+            handled = true;
+        }
+        else if (hotkeyId == StopRecordingHotkeyId)
+        {
+            RequestStopRecordingByHotkey();
             handled = true;
         }
 
@@ -481,6 +587,18 @@ public partial class MainWindow : Window
             CreatedAt = DateTimeOffset.Now,
             Actions = Actions.ToList()
         };
+    }
+
+    private void RemoveTrailingStopHotkeyModifiers()
+    {
+        while (Actions.LastOrDefault() is { } action
+               && action.Type == MacroActionType.KeyDown
+               && IsShiftKey(action.VirtualKey))
+        {
+            Actions.RemoveAt(Actions.Count - 1);
+        }
+
+        QueueActionsRefresh(scrollToLast: false);
     }
 
     private bool TryCommitGrid()
@@ -537,6 +655,7 @@ public partial class MainWindow : Window
         StopButton.IsEnabled = busy;
         PlayButton.IsEnabled = !busy && hasActions;
         AddDelayButton.IsEnabled = !busy;
+        ClearButton.IsEnabled = !busy && hasActions;
         DeleteButton.IsEnabled = !busy && hasSelection;
         MoveUpButton.IsEnabled = !busy && currentIndex > 0;
         MoveDownButton.IsEnabled = !busy && currentIndex >= 0 && currentIndex < Actions.Count - 1;
@@ -544,8 +663,10 @@ public partial class MainWindow : Window
         CaptureMovesCheckBox.IsEnabled = !busy;
         MoveCursorCheckBox.IsEnabled = !busy;
         RepeatModeComboBox.IsEnabled = !busy;
-        RepeatCountTextBox.IsEnabled = !busy && SelectedRepeatMode() == PlaybackRepeatMode.Count;
-        DurationMinutesTextBox.IsEnabled = !busy && SelectedRepeatMode() == PlaybackRepeatMode.Duration;
+        RepeatCountPanel.Visibility = SelectedRepeatMode() == PlaybackRepeatMode.Count ? Visibility.Visible : Visibility.Collapsed;
+        DurationPanel.Visibility = SelectedRepeatMode() == PlaybackRepeatMode.Duration ? Visibility.Visible : Visibility.Collapsed;
+        RepeatCountTextBox.IsEnabled = !busy && RepeatCountPanel.Visibility == Visibility.Visible;
+        DurationMinutesTextBox.IsEnabled = !busy && DurationPanel.Visibility == Visibility.Visible;
         SpeedTextBox.IsEnabled = !busy;
         StartDelayTextBox.IsEnabled = !busy;
     }
@@ -557,9 +678,55 @@ public partial class MainWindow : Window
             return;
         }
 
-        RepeatCountTextBox.IsEnabled = SelectedRepeatMode() == PlaybackRepeatMode.Count && _playbackCts is null && _recorder is null;
-        DurationMinutesTextBox.IsEnabled = SelectedRepeatMode() == PlaybackRepeatMode.Duration && _playbackCts is null && _recorder is null;
+        RepeatCountPanel.Visibility = SelectedRepeatMode() == PlaybackRepeatMode.Count ? Visibility.Visible : Visibility.Collapsed;
+        DurationPanel.Visibility = SelectedRepeatMode() == PlaybackRepeatMode.Duration ? Visibility.Visible : Visibility.Collapsed;
+        RepeatCountTextBox.IsEnabled = RepeatCountPanel.Visibility == Visibility.Visible && _playbackCts is null && _recorder is null;
+        DurationMinutesTextBox.IsEnabled = DurationPanel.Visibility == Visibility.Visible && _playbackCts is null && _recorder is null;
         UpdateInteractionState();
+    }
+
+    private void RefreshTimingSummary()
+    {
+        if (!IsInitialized || ScriptDurationTextBlock is null)
+        {
+            return;
+        }
+
+        TimeSpan scriptDuration = GetScriptDuration();
+        ScriptDurationTextBlock.Text = FormatRemaining(scriptDuration);
+
+        PlaybackRepeatMode repeatMode = SelectedRepeatMode();
+        double speed = TryParseFlexibleDouble(SpeedTextBox.Text, out double parsedSpeed)
+            ? Math.Clamp(parsedSpeed, 0.1, 10.0)
+            : 1.0;
+        double startDelaySeconds = TryParseFlexibleDouble(StartDelayTextBox.Text, out double parsedStartDelay)
+            ? Math.Clamp(parsedStartDelay, 0, 30)
+            : 0;
+
+        if (repeatMode == PlaybackRepeatMode.Count)
+        {
+            int repeatCount = TryParseIntSilent(RepeatCountTextBox.Text, out int parsedRepeatCount)
+                ? Math.Clamp(parsedRepeatCount, 1, 999)
+                : 1;
+            TimeSpan planned = ScaleDuration(scriptDuration, speed) * repeatCount
+                + TimeSpan.FromSeconds(startDelaySeconds);
+            RunPlanTextBlock.Text = $"{repeatCount} повт. ≈ {FormatRemaining(planned)}";
+            if (_playbackCts is null)
+            {
+                RemainingTextBlock.Text = "--:--";
+            }
+        }
+        else
+        {
+            int minutes = TryParseIntSilent(DurationMinutesTextBox.Text, out int parsedMinutes)
+                ? Math.Clamp(parsedMinutes, 1, 1440)
+                : 1;
+            RunPlanTextBlock.Text = $"до {minutes} мин";
+            if (_playbackCts is null)
+            {
+                RemainingTextBlock.Text = FormatRemaining(TimeSpan.FromMinutes(minutes));
+            }
+        }
     }
 
     private PlaybackRepeatMode SelectedRepeatMode()
@@ -583,6 +750,32 @@ public partial class MainWindow : Window
 
         ActionsGrid.SelectedItem = Actions[index];
         ActionsGrid.ScrollIntoView(Actions[index]);
+    }
+
+    private TimeSpan GetScriptDuration()
+    {
+        long totalMs = Actions.Sum(action => Math.Max(0, action.DelayMs));
+        return TimeSpan.FromMilliseconds(totalMs);
+    }
+
+    private TimeSpan EstimateCountRemaining(PlaybackProgress progress)
+    {
+        if (progress.RepeatCount <= 0 || progress.ActionCount == 0)
+        {
+            return TimeSpan.Zero;
+        }
+
+        double speed = TryParseFlexibleDouble(SpeedTextBox.Text, out double parsedSpeed)
+            ? Math.Clamp(parsedSpeed, 0.1, 10.0)
+            : 1.0;
+
+        long remainingCurrentRepeatMs = Actions
+            .Skip(Math.Clamp(progress.ActionIndex, 0, Actions.Count))
+            .Sum(action => Math.Max(0, action.DelayMs));
+        long remainingRepeatsMs = Math.Max(0, progress.RepeatCount - progress.RepeatIndex)
+            * (long)GetScriptDuration().TotalMilliseconds;
+
+        return ScaleDuration(TimeSpan.FromMilliseconds(remainingCurrentRepeatMs + remainingRepeatsMs), speed);
     }
 
     private void SetStatus(string message)
@@ -622,6 +815,12 @@ public partial class MainWindow : Window
         return false;
     }
 
+    private static bool TryParseIntSilent(string value, out int result)
+    {
+        return int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out result)
+            || int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
+    }
+
     private static bool TryParseFlexibleDouble(string value, out double result)
     {
         string trimmed = value.Trim();
@@ -649,6 +848,26 @@ public partial class MainWindow : Window
         string currentSeparator = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
         string currentCandidate = trimmed.Replace(".", currentSeparator).Replace(",", currentSeparator);
         return double.TryParse(currentCandidate, NumberStyles.Float, CultureInfo.CurrentCulture, out result);
+    }
+
+    private static TimeSpan ScaleDuration(TimeSpan duration, double speed)
+    {
+        if (duration <= TimeSpan.Zero)
+        {
+            return TimeSpan.Zero;
+        }
+
+        return TimeSpan.FromMilliseconds(duration.TotalMilliseconds / Math.Clamp(speed, 0.1, 10.0));
+    }
+
+    private static bool IsF9(KeyEventArgs e)
+    {
+        return e.Key == Key.F9 || e.SystemKey == Key.F9;
+    }
+
+    private static bool IsShiftKey(int virtualKey)
+    {
+        return virtualKey is VK_SHIFT or VK_LSHIFT or VK_RSHIFT;
     }
 
     private void QueueActionsRefresh(bool scrollToLast)

@@ -31,6 +31,8 @@ internal static class NativeMethods
     internal const uint LLKHF_INJECTED = 0x10;
     internal const uint LLKHF_EXTENDED = 0x01;
     internal const uint LLMHF_INJECTED = 0x00000001;
+    internal const int VK_SHIFT = 0x10;
+    internal const int VK_CONTROL = 0x11;
 
     private const uint INPUT_MOUSE = 0;
     private const uint INPUT_KEYBOARD = 1;
@@ -84,6 +86,9 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetKeyNameText(int lParam, StringBuilder lpString, int cchSize);
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
 
     internal static void MoveCursor(int x, int y)
     {
@@ -144,6 +149,11 @@ internal static class NativeMethods
         return GetKeyNameText(lParam, builder, builder.Capacity) > 0
             ? builder.ToString()
             : $"VK_{virtualKey}";
+    }
+
+    internal static bool IsKeyDown(int virtualKey)
+    {
+        return (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
     }
 
     internal static void SendMouseButton(MouseButtonKind button, bool isDown)

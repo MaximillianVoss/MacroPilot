@@ -95,9 +95,16 @@ public sealed class GlobalMacroRecorder : IDisposable
                 bool isUp = message is NativeMethods.WM_KEYUP or NativeMethods.WM_SYSKEYUP;
                 int virtualKey = checked((int)hook.vkCode);
 
-                if (isDown && virtualKey == StopRecordingVirtualKey)
+                bool isHotkeyF9 = virtualKey == StopRecordingVirtualKey
+                    && (NativeMethods.IsKeyDown(NativeMethods.VK_SHIFT) || NativeMethods.IsKeyDown(NativeMethods.VK_CONTROL));
+
+                if (isHotkeyF9)
                 {
-                    StopRequested?.Invoke(this, EventArgs.Empty);
+                    if (isDown && NativeMethods.IsKeyDown(NativeMethods.VK_SHIFT))
+                    {
+                        StopRequested?.Invoke(this, EventArgs.Empty);
+                    }
+
                     return 1;
                 }
 

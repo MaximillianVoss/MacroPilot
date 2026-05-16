@@ -8,9 +8,10 @@ It focuses on the ReMouse-like core workflow:
 - record mouse clicks, releases, wheel events, and optionally mouse movement;
 - replay the recorded script with repeat count, speed multiplier, and start delay;
 - replay the recorded script for a configured duration in minutes in the WPF app;
+- show the script duration, planned run time, and remaining playback time;
 - save and load editable JSON scripts (`*.macropilot.json`);
-- start recording in the WPF app with `Ctrl+Alt+F8`;
-- stop recording globally with `F9`;
+- start recording in the WPF app with `Ctrl+F9`;
+- stop recording globally with `Shift+F9`;
 - cancel playback with `Esc` when the app has focus.
 
 ## Projects
@@ -44,11 +45,11 @@ dotnet run --project .\MacroPilot.App\MacroPilot.App.csproj
 
 ## Usage Notes
 
-1. Click `Запись` or press `Ctrl+Alt+F8` in the WPF app to start recording.
+1. Click `Запись` or press `Ctrl+F9` in the WPF app to start recording.
 2. Perform the actions you want to capture.
-3. Press `F9` or click `Стоп`.
-4. Review or edit the action table.
-5. Set repeat count or switch the WPF app to minute-based duration mode.
+3. Press `Shift+F9` or click `Стоп`.
+4. Review or edit the action table. The `Время` column shows each action delay in a readable format.
+5. Set repeat count or switch the WPF app to minute-based duration mode. The unused repeat/duration field is hidden automatically.
 6. Click `Пуск`.
 
 Mouse coordinates are stored as absolute screen coordinates. For reliable playback, keep the target windows in the same positions or edit the coordinates in the table.

@@ -17,17 +17,13 @@
         PreviewKeyDown="Window_PreviewKeyDown"
         Closing="Window_Closing">
     <Window.Resources>
-        <ObjectDataProvider x:Key="ActionTypes"
-                            MethodName="GetValues"
-                            ObjectType="{x:Type sys:Enum}">
+        <ObjectDataProvider x:Key="ActionTypes" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
             <ObjectDataProvider.MethodParameters>
                 <x:Type TypeName="models:MacroActionType" />
             </ObjectDataProvider.MethodParameters>
         </ObjectDataProvider>
 
-        <ObjectDataProvider x:Key="MouseButtons"
-                            MethodName="GetValues"
-                            ObjectType="{x:Type sys:Enum}">
+        <ObjectDataProvider x:Key="MouseButtons" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
             <ObjectDataProvider.MethodParameters>
                 <x:Type TypeName="models:MouseButtonKind" />
             </ObjectDataProvider.MethodParameters>
@@ -38,12 +34,23 @@
             <Setter Property="BorderBrush" Value="#DCE5EE" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="14" />
+            <Setter Property="Padding" Value="10" />
+        </Style>
+
+        <Style x:Key="FieldPanelStyle" TargetType="StackPanel">
+            <Setter Property="Margin" Value="0,0,12,0" />
+            <Setter Property="MinWidth" Value="108" />
+        </Style>
+
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="#587083" />
+            <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
 
         <Style TargetType="Button">
-            <Setter Property="MinHeight" Value="34" />
-            <Setter Property="Padding" Value="14,6" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="12,5" />
             <Setter Property="Margin" Value="0,0,8,0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Background" Value="#F8FAFC" />
@@ -57,6 +64,12 @@
             <Setter Property="BorderBrush" Value="#00758E" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#FFF5F6" />
+            <Setter Property="BorderBrush" Value="#F0B8BE" />
+            <Setter Property="Foreground" Value="#8F2632" />
         </Style>
 
         <Style TargetType="TextBox">
@@ -84,96 +97,92 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Style="{StaticResource PanelBorderStyle}" Margin="0,0,0,12">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+        <Border Grid.Row="0" Style="{StaticResource PanelBorderStyle}" Margin="0,0,0,8">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button x:Name="NewButton" Content="Новый" Click="NewButton_Click" />
+                    <Button x:Name="OpenButton" Content="Открыть" Click="OpenButton_Click" />
+                    <Button x:Name="SaveButton" Content="Сохранить" Click="SaveButton_Click" />
+                    <Button x:Name="ClearButton" Content="Очистить" Style="{StaticResource DangerButtonStyle}" Click="ClearButton_Click" />
+                    <Separator Width="10" Visibility="Hidden" />
+                    <Button x:Name="RecordButton" Content="Запись" Style="{StaticResource PrimaryButtonStyle}" Click="RecordButton_Click" />
+                    <Button x:Name="StopButton" Content="Стоп" Click="StopButton_Click" />
+                    <Button x:Name="PlayButton" Content="Пуск" Style="{StaticResource PrimaryButtonStyle}" Click="PlayButton_Click" />
+                    <Separator Width="10" Visibility="Hidden" />
+                    <Button x:Name="AddDelayButton" Content="+ Пауза" Click="AddDelayButton_Click" />
+                    <Button x:Name="DeleteButton" Content="Удалить строки" Click="DeleteButton_Click" />
+                    <Button x:Name="MoveUpButton" Content="Выше" Click="MoveUpButton_Click" />
+                    <Button x:Name="MoveDownButton" Content="Ниже" Click="MoveDownButton_Click" />
+                </StackPanel>
 
-                <DockPanel Grid.Row="0" LastChildFill="False">
-                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                        <Button x:Name="NewButton" Content="Новый" Click="NewButton_Click" />
-                        <Button x:Name="OpenButton" Content="Открыть" Click="OpenButton_Click" />
-                        <Button x:Name="SaveButton" Content="Сохранить" Click="SaveButton_Click" />
-                        <Separator Width="10" Visibility="Hidden" />
-                        <Button x:Name="RecordButton" Content="Запись" Style="{StaticResource PrimaryButtonStyle}" Click="RecordButton_Click" />
-                        <Button x:Name="StopButton" Content="Стоп" Click="StopButton_Click" />
-                        <Button x:Name="PlayButton" Content="Пуск" Style="{StaticResource PrimaryButtonStyle}" Click="PlayButton_Click" />
-                    </StackPanel>
-
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                        <Button x:Name="AddDelayButton" Content="+ Пауза" Click="AddDelayButton_Click" />
-                        <Button x:Name="DeleteButton" Content="Удалить" Click="DeleteButton_Click" />
-                        <Button x:Name="MoveUpButton" Content="Выше" Click="MoveUpButton_Click" />
-                        <Button x:Name="MoveDownButton" Content="Ниже" Click="MoveDownButton_Click" Margin="0" />
-                    </StackPanel>
-                </DockPanel>
-
-                <Grid Grid.Row="1" Margin="0,14,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="230" />
-                        <ColumnDefinition Width="120" />
-                        <ColumnDefinition Width="120" />
-                        <ColumnDefinition Width="132" />
-                        <ColumnDefinition Width="132" />
-                        <ColumnDefinition Width="150" />
-                        <ColumnDefinition Width="160" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Имя сценария" FontSize="12" Foreground="#587083" Margin="0,0,0,4" />
+                <WrapPanel DockPanel.Dock="Top" VerticalAlignment="Top">
+                    <StackPanel Style="{StaticResource FieldPanelStyle}" Width="230">
+                        <TextBlock Text="Имя сценария" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox x:Name="NameTextBox" Text="Мой макрос" />
                     </StackPanel>
 
-                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                        <TextBlock Text="Режим" FontSize="12" Foreground="#587083" Margin="0,0,0,4" />
+                    <StackPanel Style="{StaticResource FieldPanelStyle}" Width="120">
+                        <TextBlock Text="Режим" Style="{StaticResource FieldLabelStyle}" />
                         <ComboBox x:Name="RepeatModeComboBox" SelectionChanged="RepeatModeComboBox_SelectionChanged">
                             <ComboBoxItem Content="Повторы" Tag="{x:Static playback:PlaybackRepeatMode.Count}" IsSelected="True" />
                             <ComboBoxItem Content="Минуты" Tag="{x:Static playback:PlaybackRepeatMode.Duration}" />
                         </ComboBox>
                     </StackPanel>
 
-                    <StackPanel Grid.Column="2" Margin="12,0,0,0">
-                        <TextBlock Text="Повторы" FontSize="12" Foreground="#587083" Margin="0,0,0,4" />
-                        <TextBox x:Name="RepeatCountTextBox" Text="1" />
+                    <StackPanel x:Name="RepeatCountPanel" Style="{StaticResource FieldPanelStyle}" Width="108">
+                        <TextBlock Text="Повторы" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="RepeatCountTextBox" Text="1" TextChanged="PlaybackSettingsChanged" />
                     </StackPanel>
 
-                    <StackPanel Grid.Column="3" Margin="12,0,0,0">
-                        <TextBlock Text="Длительность, мин" FontSize="12" Foreground="#587083" Margin="0,0,0,4" />
-                        <TextBox x:Name="DurationMinutesTextBox" Text="60" IsEnabled="False" />
+                    <StackPanel x:Name="DurationPanel" Style="{StaticResource FieldPanelStyle}" Width="132" Visibility="Collapsed">
+                        <TextBlock Text="Длительность, мин" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="DurationMinutesTextBox" Text="60" TextChanged="PlaybackSettingsChanged" />
                     </StackPanel>
 
-                    <StackPanel Grid.Column="4" Margin="12,0,0,0">
-                        <TextBlock Text="Скорость" FontSize="12" Foreground="#587083" Margin="0,0,0,4" />
-                        <TextBox x:Name="SpeedTextBox" Text="1.0" />
+                    <StackPanel Style="{StaticResource FieldPanelStyle}" Width="108">
+                        <TextBlock Text="Скорость" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="SpeedTextBox" Text="1.0" TextChanged="PlaybackSettingsChanged" />
                     </StackPanel>
 
-                    <StackPanel Grid.Column="5" Margin="12,0,0,0">
-                        <TextBlock Text="Старт, сек" FontSize="12" Foreground="#587083" Margin="0,0,0,4" />
-                        <TextBox x:Name="StartDelayTextBox" Text="1.5" />
+                    <StackPanel Style="{StaticResource FieldPanelStyle}" Width="108">
+                        <TextBlock Text="Старт, сек" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="StartDelayTextBox" Text="1.5" TextChanged="PlaybackSettingsChanged" />
                     </StackPanel>
 
-                    <StackPanel Grid.Column="6" Margin="12,19,0,0">
-                        <CheckBox x:Name="CaptureMovesCheckBox" Content="движения мыши" Margin="0,0,0,6" />
+                    <StackPanel Style="{StaticResource FieldPanelStyle}" MinWidth="140" Margin="0,18,12,0">
+                        <CheckBox x:Name="CaptureMovesCheckBox" Content="движения мыши" Margin="0,0,0,5" />
                         <CheckBox x:Name="MoveCursorCheckBox" Content="ставить курсор" IsChecked="True" />
                     </StackPanel>
 
-                    <TextBlock Grid.Column="7"
-                               Margin="18,20,0,0"
-                               Foreground="#587083"
-                               TextWrapping="Wrap"
-                               Text="Ctrl+Alt+F8 запускает запись. F9 останавливает запись. Esc останавливает проигрывание, когда окно активно." />
-                </Grid>
-            </Grid>
+                    <StackPanel Style="{StaticResource FieldPanelStyle}" MinWidth="190" Margin="0,1,12,0">
+                        <TextBlock Text="Сценарий" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBlock x:Name="ScriptDurationTextBlock" Text="00:00.0" FontWeight="SemiBold" Foreground="#102033" />
+                    </StackPanel>
+
+                    <StackPanel Style="{StaticResource FieldPanelStyle}" MinWidth="190" Margin="0,1,12,0">
+                        <TextBlock Text="План запуска" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBlock x:Name="RunPlanTextBlock" Text="1 повтор" FontWeight="SemiBold" Foreground="#102033" />
+                    </StackPanel>
+
+                    <StackPanel Style="{StaticResource FieldPanelStyle}" MinWidth="170" Margin="0,1,0,0">
+                        <TextBlock Text="Осталось" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBlock x:Name="RemainingTextBlock" Text="--:--" FontWeight="SemiBold" Foreground="#00758E" />
+                    </StackPanel>
+                </WrapPanel>
+
+                <TextBlock DockPanel.Dock="Bottom"
+                           Margin="0,8,0,0"
+                           FontSize="12"
+                           Foreground="#587083"
+                           Text="Ctrl+F9 запускает запись. Shift+F9 останавливает запись. Esc останавливает проигрывание." />
+            </DockPanel>
         </Border>
 
         <DataGrid x:Name="ActionsGrid"
@@ -183,13 +192,16 @@
                   CanUserDeleteRows="True"
                   SelectionMode="Extended"
                   SelectionUnit="FullRow"
-                  SelectionChanged="ActionsGrid_SelectionChanged">
+                  SelectionChanged="ActionsGrid_SelectionChanged"
+                  CellEditEnding="ActionsGrid_CellEditEnding"
+                  CurrentCellChanged="ActionsGrid_CurrentCellChanged">
             <DataGrid.Columns>
                 <DataGridComboBoxColumn Header="Тип"
                                         SelectedItemBinding="{Binding Type, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                         ItemsSource="{Binding Source={StaticResource ActionTypes}}"
                                         Width="120" />
                 <DataGridTextColumn Header="Задержка, мс" Binding="{Binding DelayMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="100" />
+                <DataGridTextColumn Header="Время" Binding="{Binding DelayText}" IsReadOnly="True" Width="90" />
                 <DataGridTextColumn Header="X" Binding="{Binding X, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="70" />
                 <DataGridTextColumn Header="Y" Binding="{Binding Y, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="70" />
                 <DataGridComboBoxColumn Header="Кнопка"
@@ -197,7 +209,7 @@
                                         ItemsSource="{Binding Source={StaticResource MouseButtons}}"
                                         Width="100" />
                 <DataGridTextColumn Header="Колесо" Binding="{Binding Delta, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                <DataGridTextColumn Header="VK" Binding="{Binding VirtualKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                <DataGridTextColumn Header="VK" Binding="{Binding VirtualKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="70" />
                 <DataGridTextColumn Header="Клавиша" Binding="{Binding KeyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="110" />
                 <DataGridTextColumn Header="Комментарий" Binding="{Binding Comment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*" />
             </DataGrid.Columns>
@@ -207,10 +219,8 @@
                 Background="#102033"
                 CornerRadius="6"
                 Padding="12,8"
-                Margin="0,12,0,0">
-            <TextBlock x:Name="StatusTextBlock"
-                       Foreground="White"
-                       Text="Готово" />
+                Margin="0,8,0,0">
+            <TextBlock x:Name="StatusTextBlock" Foreground="White" Text="Готово" />
         </Border>
     </Grid>
 </Window>
