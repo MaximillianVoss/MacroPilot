@@ -55,3 +55,5 @@ dotnet run --project .\MacroPilot.App\MacroPilot.App.csproj
 Mouse coordinates are stored as absolute screen coordinates. For reliable playback, keep the target windows in the same positions or edit the coordinates in the table.
 
 MacroPilot records only while the visible application is in recording mode. It ignores injected events to avoid recording its own playback output. If the target application runs as administrator, Windows may block input injection unless MacroPilot is also started with equivalent privileges.
+
+The WPF recorder also skips mouse actions that hit the MacroPilot window itself. This prevents a recorded click on the app's `Стоп` button from cancelling playback on the first repeat.

@@ -213,7 +213,8 @@ public partial class MainWindow : Window
         {
             _recorder = new GlobalMacroRecorder(new RecorderOptions
             {
-                CaptureMouseMoves = CaptureMovesCheckBox.IsChecked == true
+                CaptureMouseMoves = CaptureMovesCheckBox.IsChecked == true,
+                ShouldRecordAction = ShouldRecordAction
             });
             _recorder.ActionRecorded += RecorderOnActionRecorded;
             _recorder.StopRequested += RecorderOnStopRequested;
@@ -419,10 +420,20 @@ public partial class MainWindow : Window
         }
 
         MacroScript script = BuildScriptFromGrid();
+        int ignoredOwnWindowActions = script.Actions.RemoveAll(IsMouseActionInsideThisWindow);
+        if (script.Actions.Count == 0)
+        {
+            SetStatus("В сценарии остались только действия по окну MacroPilot. Проигрывание не запущено.");
+            return;
+        }
+
         using CancellationTokenSource cts = new();
         _playbackCts = cts;
         UpdateInteractionState();
-        SetStatus($"Старт через {options!.StartDelayMs / 1000.0:0.0} сек. Esc отменяет проигрывание.");
+        string ignoredText = ignoredOwnWindowActions > 0
+            ? $" Пропущено действий окна MacroPilot: {ignoredOwnWindowActions}."
+            : string.Empty;
+        SetStatus($"Старт через {options!.StartDelayMs / 1000.0:0.0} сек.{ignoredText} Esc отменяет проигрывание.");
 
         Progress<PlaybackProgress> progress = new(UpdatePlaybackProgress);
 
@@ -524,6 +535,7 @@ public partial class MainWindow : Window
             _stopRequestedByHotkey = false;
         }
 
+        RemoveTrailingOwnWindowMouseActions();
         RefreshTimingSummary();
         SetStatus($"Запись остановлена. Действий: {Actions.Count}.");
         UpdateInteractionState();
@@ -587,6 +599,57 @@ public partial class MainWindow : Window
             CreatedAt = DateTimeOffset.Now,
             Actions = Actions.ToList()
         };
+    }
+
+    private bool ShouldRecordAction(MacroAction action)
+    {
+        return !IsMouseActionInsideThisWindow(action);
+    }
+
+    private int RemoveTrailingOwnWindowMouseActions()
+    {
+        int removed = 0;
+        while (Actions.LastOrDefault() is { } action && IsMouseActionInsideThisWindow(action))
+        {
+            Actions.RemoveAt(Actions.Count - 1);
+            removed++;
+        }
+
+        if (removed > 0)
+        {
+            QueueActionsRefresh(scrollToLast: false);
+        }
+
+        return removed;
+    }
+
+    private bool IsMouseActionInsideThisWindow(MacroAction action)
+    {
+        if (action.Type is not (MacroActionType.MouseMove
+            or MacroActionType.MouseDown
+            or MacroActionType.MouseUp
+            or MacroActionType.MouseWheel))
+        {
+            return false;
+        }
+
+        if (!IsLoaded || ActualWidth <= 0 || ActualHeight <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            Point point = PointFromScreen(new Point(action.X, action.Y));
+            return point.X >= 0
+                && point.Y >= 0
+                && point.X <= ActualWidth
+                && point.Y <= ActualHeight;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private void RemoveTrailingStopHotkeyModifiers()

@@ -225,6 +225,11 @@ public sealed class GlobalMacroRecorder : IDisposable
 
     private void Record(MacroAction action)
     {
+        if (_options.ShouldRecordAction is not null && !_options.ShouldRecordAction(action))
+        {
+            return;
+        }
+
         action.DelayMs = NextDelayMs();
         ActionRecorded?.Invoke(this, action);
     }
