@@ -23,13 +23,26 @@ It focuses on the ReMouse-like core workflow:
 ## Requirements
 
 - Windows
-- .NET 8 SDK or newer with Windows Desktop runtime
+- For development: .NET 8 SDK or newer with Windows Desktop runtime
+- For portable self-contained builds: Windows with the matching CPU architecture (`win-x64`, `win-x86`, or `win-arm64`)
 
 ## Build
 
 ```powershell
 dotnet build MacroPilot.slnx
 ```
+
+## Portable Publish
+
+The regular `bin\Release\net8.0-windows` output is framework-dependent. Do not copy only `MacroPilot.Wpf.exe` from that folder to another machine unless .NET 8 Desktop Runtime is installed and all neighboring `.dll`, `.json`, and resource files are copied with it.
+
+To create a self-contained WPF build for another Windows machine:
+
+```powershell
+.\scripts\publish-wpf-portable.ps1 -Runtime win-x64
+```
+
+The portable output is written to `artifacts\MacroPilot.Wpf\win-x64-self-contained`. Copy the whole output folder to the target machine. If the folder contains only `MacroPilot.Wpf.exe`, that EXE already includes the required .NET runtime files.
 
 ## Run
 
