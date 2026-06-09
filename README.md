@@ -1,5 +1,22 @@
 # MacroPilot
 
+<!-- codex-repo-note:start -->
+## Справка о репозитории / Repository note
+
+**RU:** приложение для автоматизации макросов и рабочих действий.
+
+**EN:** an application for macro and workflow automation.
+
+**Статус / Status:** активный проект 2026 года; ожидает рефакторинга и переименования. / active 2026 project; refactoring and repository rename are pending.
+
+**Текущее имя / Current name:** `MacroPilot`
+
+**Плановое имя / Planned name:** `macro-pilot`
+
+**Topics:** `automation`, `cleanup-pending`, `csharp`, `needs-rename`, `needs-review`, `productivity`, `status-active`, `type-app`
+<!-- codex-repo-note:end -->
+
+
 MacroPilot is a small Windows macro recorder/player written in C#.
 
 It focuses on the ReMouse-like core workflow:
